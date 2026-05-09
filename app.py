@@ -5,8 +5,8 @@ import xgboost as xgb
 import plotly.graph_objects as go
 import time
 
-# 1. ตั้งค่าหน้าเว็บ (Engineering Industrial Theme)
-st.set_page_config(page_title="Hatchery Digital Twin Pro", page_icon="🏗️", layout="wide")
+# 1. ตั้งค่าหน้าเว็บ (Industrial Engineering Theme)
+st.set_page_config(page_title="Advanced Hatchery Twin", page_icon="🏗️", layout="wide")
 
 st.markdown("""
     <style>
@@ -29,30 +29,22 @@ def get_live_data():
     np.random.seed(int(time.time()))
     racks, trays = [f"R{i:02d}" for i in range(1, 11)], [f"T{i:02d}" for i in range(1, 11)]
     egg_data, sensor_data = [], []
-    
-    # จำลองความแกว่งของสภาพอากาศรายวินาที
     diurnal_drift = np.sin(time.time() / 60) * 0.4 
     
     for r_idx, r in enumerate(racks):
         y_base = r_idx * 8 + (18 if r_idx >= 5 else 0)
         for t_idx, t in enumerate(trays):
-            x_base = t_idx * 12 + 35 # เว้นที่ให้ห้องควบคุม
+            x_base = t_idx * 12 + 35
             tray_temp = 37.5 + diurnal_drift + np.random.normal(0, 0.15)
             tray_humid = 65.0 - (diurnal_drift * 4) + np.random.normal(0, 1.2)
-            
-            sensor_data.append({
-                'ID': f"SHT31-{r}-{t}", 'X': x_base - 3, 'Y': y_base + 0.5, 
-                'T': tray_temp, 'H': tray_humid
-            })
-            
+            sensor_data.append({'ID': f"SHT31-{r}-{t}", 'X': x_base - 3, 'Y': y_base + 0.5, 'T': tray_temp, 'H': tray_humid})
             for e_idx in range(10):
                 e_row, e_col = e_idx // 5, e_idx % 5
                 egg_temp = tray_temp + np.random.normal(0, 0.05)
                 spike = np.random.choice([0, 1], p=[0.97, 0.03])
                 egg_data.append({
                     'Egg_ID': f"{r}-{t}-C{e_idx+1:02d}", 'X': x_base + e_col, 'Y': y_base + e_row,
-                    'Temp': np.round(egg_temp, 2), 'Humid': np.round(tray_humid, 2), 'Spike': spike,
-                    'Rack': r, 'Tray': t
+                    'Temp': np.round(egg_temp, 2), 'Humid': np.round(tray_humid, 2), 'Spike': spike, 'Rack': r, 'Tray': t
                 })
     return pd.DataFrame(egg_data), pd.DataFrame(sensor_data)
 
@@ -69,7 +61,6 @@ df, df_sensors = get_live_data()
 # 3. SIDEBAR: TECHNICAL DOCUMENTATION & CONTROLS
 with st.sidebar:
     st.header("🏗️ Engineering Master Plan")
-    
     st.subheader("⏱️ Simulation Control")
     is_live = st.toggle("เปิดระบบ Real-time Monitoring (Live)", value=True)
     
@@ -102,9 +93,8 @@ if st.session_state.show_guide:
     st.markdown(f"""
     <div class="guide-box">
         <h3>📖 คู่มือระบบ Digital Twin (Industrial Edition)</h3>
-        <p>• <b>Live Mode:</b> ข้อมูลจะอัปเดตทุก 5 วินาทีเพื่อให้เห็นพฤติกรรมความร้อนจริง</p>
-        <p>• <b>Precision Zoom:</b> หากต้องการซูมดูพิกัดไข่ ให้ <b>ปิด (Pause)</b> ระบบ Live ก่อน เพื่อล็อคตำแหน่งกล้อง</p>
-        <p>• <b>Technical:</b> ประมวลผลด้วย XGBoost Model (Accuracy 94.2%) อิงตามโครงสร้างผังวิศวกรรมอาคาร</p>
+        <p>• <b>Live Mode:</b> ข้อมูลจะอัปเดตทุก 5 วินาทีเพื่อให้เห็นความร้อนที่เปลี่ยนไป</p>
+        <p>• <b>Precision Zoom:</b> เมื่อต้องการดูพิกัดไข่ ให้ <b>ปิด (Pause)</b> ระบบ Live ก่อน เพื่อล็อคตำแหน่งกล้องให้คงที่</p>
     </div>
     """, unsafe_allow_html=True)
     if st.button("✅ เริ่มการตรวจสอบ"):
@@ -116,7 +106,7 @@ st.title("🏗️ Duck Hatchery: Live Engineering Twin")
 if is_live:
     st.markdown('สถานะ: <span class="live-indicator">● LIVE STREAMING</span>', unsafe_allow_html=True)
 else:
-    st.markdown('สถานะ: <span class="pause-indicator">■ PAUSED (FOR ANALYSIS)</span>', unsafe_allow_html=True)
+    st.markdown('สถานะ: <span class="pause-indicator">■ PAUSED (สำหรับการวิเคราะห์)</span>', unsafe_allow_html=True)
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("🥚 Capacity", "1,000 Eggs")
@@ -127,7 +117,6 @@ c4.metric("🚨 Critical Status", f"{crit_count} Units", delta=crit_count, delta
 
 # 7. PRO BLUEPRINT MAP
 st.subheader("📍 Smart Factory Floor Plan (Spatial View)")
-# ดึงเฉพาะรายการที่มีความเสี่ยงมาให้เลือกซูม
 at_risk_list = df[df['Status'] != 'Safe']['Egg_ID'].tolist()
 search_egg = st.selectbox("🔍 ค้นหาไอดีไข่เพื่อระบุตำแหน่ง (Focus Search):", ["None"] + at_risk_list)
 
@@ -155,23 +144,29 @@ for status in ['Safe', 'Warning', 'Critical']:
         text=sub.apply(lambda r: f"ID: {r['Egg_ID']}<br>รอด: {r['Prob']}%", axis=1), hoverinfo='text'
     ))
 
-# --- PRECISION ZOOM LOGIC ---
+# --- 🔥 FIXED PRECISION ZOOM LOGIC ---
+# กำหนดค่าเริ่มต้นของแกน (มุมมองปกติ)
+x_range = [-5, 165]
+y_range = [-25, 105]
+
+# หากมีการเลือกไข่ ให้เปลี่ยนระยะช่วงแกน
 if search_egg != "None":
     tgt = df[df['Egg_ID'] == search_egg].iloc[0]
-    # บังคับช่วงแกน (X, Y Axes) ให้แคบลงรอบๆ ไข่ที่เลือก
-    fig.update_xaxes(range=[tgt['X']-12, tgt['X']+12], autorange=False)
-    fig.update_yaxes(range=[tgt['Y']-12, tgt['Y']+12], autorange=False)
-    # เพิ่มวงกลมเน้นตำแหน่ง
+    x_range = [tgt['X'] - 12, tgt['X'] + 12]
+    y_range = [tgt['Y'] - 12, tgt['Y'] + 12]
+    # เพิ่มวงกลมไฮไลท์
     fig.add_shape(type="circle", x0=tgt['X']-2, y0=tgt['Y']-2, x1=tgt['X']+2, y1=tgt['Y']+2, line=dict(color="#ffffff", width=4))
-else:
-    # คืนค่ากลับสู่มุมมองอาคารทั้งหมด
-    fig.update_xaxes(range=[-5, 165], autorange=False)
-    fig.update_yaxes(range=[-25, 105], autorange=False)
 
-fig.update_layout(template="plotly_dark", height=750, margin=dict(l=10, r=10, t=10, b=10),
-                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-                  xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
-                  yaxis=dict(showgrid=False, showticklabels=False, zeroline=False, scaleanchor="x", scaleratio=1))
+# รวมการตั้งค่าทั้งหมดไว้ใน update_layout ทีเดียว เพื่อป้องกันการเขียนทับ
+fig.update_layout(
+    template="plotly_dark", 
+    height=750, 
+    margin=dict(l=10, r=10, t=10, b=10),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+    xaxis=dict(range=x_range, autorange=False, showgrid=False, showticklabels=False, zeroline=False),
+    yaxis=dict(range=y_range, autorange=False, showgrid=False, showticklabels=False, zeroline=False, scaleanchor="x", scaleratio=1),
+    hovermode='closest'
+)
 
 st.plotly_chart(fig, use_container_width=True)
 
