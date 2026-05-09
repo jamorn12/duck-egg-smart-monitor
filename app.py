@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import time
 
 # 1. ตั้งค่าหน้าเว็บ (Engineering Industrial Theme)
-st.set_page_config(page_title="Advanced Hatchery Twin", page_icon="🏗️", layout="wide")
+st.set_page_config(page_title="Hatchery Digital Twin Pro", page_icon="🏗️", layout="wide")
 
 st.markdown("""
     <style>
@@ -26,7 +26,6 @@ if 'show_guide' not in st.session_state:
 
 # 2. DATA ENGINE (ระบบจำลองข้อมูลแบบขยับได้)
 def get_live_data():
-    # ใช้ Seed ตามเวลา เพื่อให้ค่าเปลี่ยนไปเรื่อยๆ เมื่อ Run
     np.random.seed(int(time.time()))
     racks, trays = [f"R{i:02d}" for i in range(1, 11)], [f"T{i:02d}" for i in range(1, 11)]
     egg_data, sensor_data = [], []
@@ -37,12 +36,12 @@ def get_live_data():
     for r_idx, r in enumerate(racks):
         y_base = r_idx * 8 + (18 if r_idx >= 5 else 0)
         for t_idx, t in enumerate(trays):
-            x_base = t_idx * 12 + 32
+            x_base = t_idx * 12 + 35 # เว้นที่ให้ห้องควบคุม
             tray_temp = 37.5 + diurnal_drift + np.random.normal(0, 0.15)
             tray_humid = 65.0 - (diurnal_drift * 4) + np.random.normal(0, 1.2)
             
             sensor_data.append({
-                'ID': f"SHT31-{r}-{t}", 'X': x_base - 2.5, 'Y': y_base + 0.5, 
+                'ID': f"SHT31-{r}-{t}", 'X': x_base - 3, 'Y': y_base + 0.5, 
                 'T': tray_temp, 'H': tray_humid
             })
             
@@ -69,35 +68,30 @@ df, df_sensors = get_live_data()
 
 # 3. SIDEBAR: TECHNICAL DOCUMENTATION & CONTROLS
 with st.sidebar:
-    st.header("🏗️ Factory Control Center")
+    st.header("🏗️ Engineering Master Plan")
     
-    # --- ปุ่มควบคุมสำคัญ: PLAY / PAUSE ---
     st.subheader("⏱️ Simulation Control")
-    is_live = st.toggle("เปิดระบบ Real-time Monitoring (Live)", value=True, help="ปิดเพื่อหยุดข้อมูลชั่วคราวสำหรับการซูมและวิเคราะห์ไข่รายใบ")
+    is_live = st.toggle("เปิดระบบ Real-time Monitoring (Live)", value=True)
     
-    if not is_live:
-        st.warning("⚠️ ระบบหยุดทำงานชั่วคราว (Paused) เพื่อการวิเคราะห์")
-    
-    with st.expander("🔬 AI Technical Spec & Reference"):
+    with st.expander("🔬 AI Technical Spec & Reference", expanded=True):
         st.write("**Algorithm:** XGBoost Classifier")
-        st.write("**Confidence:** 94.2% Reliability")
-        st.latex(r"L = -\sum y \log(p)")
-        st.info("อ้างอิงเกณฑ์การวิเคราะห์เชิงพื้นที่ (Spatial Thermal Analysis)")
+        st.write("**Model Reliability:** 94.2% Accuracy")
+        st.latex(r"Cost = -\frac{1}{N} \sum [y \ln(p) + (1-y) \ln(1-p)]")
+        st.info("อ้างอิงเกณฑ์การวิเคราะห์เชิงพื้นที่ (Incubation Spatial Analysis)")
 
     with st.expander("💰 งบประมาณอุปกรณ์ (BOM)"):
         st.table(pd.DataFrame({
             "อุปกรณ์": ["SHT31-D", "ESP32", "R-Pi 4", "Wiring"],
-            "หน้าที่": ["เซ็นเซอร์วัด Temp/Humid แม่นยำสูง", "รับ-ส่งข้อมูลไร้สายรายโซน", "Server กลางประมวลผล AI", "ระบบไฟและตู้ควบคุมอาคาร"],
+            "หน้าที่": ["วัดค่าแม่นยำสูง", "รับ-ส่งข้อมูลรายโซน", "Server & AI กลาง", "ระบบไฟอาคาร"],
             "งบ (บาท)": ["35,000", "15,000", "3,500", "5,600"]
         }))
-        st.write("**งบรวม:** 59,100 บาท")
     
     st.divider()
-    threshold = st.slider("เกณฑ์การแจ้งเตือนความเสี่ยง (%)", 10, 90, 50)
+    threshold = st.slider("เกณฑ์แจ้งเตือนความเสี่ยง (%)", 10, 90, 50)
     if st.button("🔄 รีเซ็ตคู่มือ"):
         st.session_state.show_guide = True
 
-# 4. DATA PROCESSING
+# 4. PROCESSING
 df['Prob'] = np.round(model.predict_proba(df[['Temp', 'Humid', 'Spike']])[:, 1] * 100, 2)
 df['Status'] = 'Safe'
 df.loc[df['Prob'] < threshold, 'Status'] = 'Warning'
@@ -107,10 +101,10 @@ df.loc[df['Prob'] < 30, 'Status'] = 'Critical'
 if st.session_state.show_guide:
     st.markdown(f"""
     <div class="guide-box">
-        <h3>📖 คู่มือระบบ Digital Twin (Engineering View)</h3>
-        <p>• <b>สถานะ Live:</b> ข้อมูลจะขยับอัตโนมัติเมื่อเปิดปุ่ม Live ใน Sidebar</p>
-        <p>• <b>การซูม (Zoom):</b> หากต้องการซูมดูพิกัดไข่ ให้ <b>ปิด (Pause)</b> ระบบ Live ก่อน เพื่อไม่ให้แผนที่ถูกรีเซ็ต</p>
-        <p>• <b>ความน่าเชื่อถือ:</b> ประมวลผลด้วย XGBoost Model แม่นยำ 94.2%</p>
+        <h3>📖 คู่มือระบบ Digital Twin (Industrial Edition)</h3>
+        <p>• <b>Live Mode:</b> ข้อมูลจะอัปเดตทุก 5 วินาทีเพื่อให้เห็นพฤติกรรมความร้อนจริง</p>
+        <p>• <b>Precision Zoom:</b> หากต้องการซูมดูพิกัดไข่ ให้ <b>ปิด (Pause)</b> ระบบ Live ก่อน เพื่อล็อคตำแหน่งกล้อง</p>
+        <p>• <b>Technical:</b> ประมวลผลด้วย XGBoost Model (Accuracy 94.2%) อิงตามโครงสร้างผังวิศวกรรมอาคาร</p>
     </div>
     """, unsafe_allow_html=True)
     if st.button("✅ เริ่มการตรวจสอบ"):
@@ -122,36 +116,36 @@ st.title("🏗️ Duck Hatchery: Live Engineering Twin")
 if is_live:
     st.markdown('สถานะ: <span class="live-indicator">● LIVE STREAMING</span>', unsafe_allow_html=True)
 else:
-    st.markdown('สถานะ: <span class="pause-indicator">■ PAUSED (สำหรับการวิเคราะห์)</span>', unsafe_allow_html=True)
+    st.markdown('สถานะ: <span class="pause-indicator">■ PAUSED (FOR ANALYSIS)</span>', unsafe_allow_html=True)
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("🥚 Monitoring Eggs", "1,000")
-c2.metric("🌡️ Building Temp", f"{df['Temp'].mean():.2f} °C")
+c1.metric("🥚 Capacity", "1,000 Eggs")
+c2.metric("🌡️ Hall Temp", f"{df['Temp'].mean():.2f} °C")
 c3.metric("📡 Sensor Health", "Online" if is_live else "Holding")
 crit_count = (df['Status'] == 'Critical').sum()
-c4.metric("🚨 Critical Alert", f"{crit_count} Units", delta=crit_count, delta_color="inverse")
+c4.metric("🚨 Critical Status", f"{crit_count} Units", delta=crit_count, delta_color="inverse")
 
 # 7. PRO BLUEPRINT MAP
-st.subheader("📍 Smart Factory Floor Plan (Spatial Monitoring)")
-search_egg = st.selectbox("🔍 ค้นหาไอดีไข่เพื่อระบุตำแหน่ง (Focus Search):", ["None"] + df[df['Status'] != 'Safe']['Egg_ID'].tolist())
+st.subheader("📍 Smart Factory Floor Plan (Spatial View)")
+# ดึงเฉพาะรายการที่มีความเสี่ยงมาให้เลือกซูม
+at_risk_list = df[df['Status'] != 'Safe']['Egg_ID'].tolist()
+search_egg = st.selectbox("🔍 ค้นหาไอดีไข่เพื่อระบุตำแหน่ง (Focus Search):", ["None"] + at_risk_list)
 
 fig = go.Figure()
 
-# --- DRAW ENGINEERING ELEMENTS ---
-fig.add_shape(type="rect", x0=0, y0=-20, x1=155, y1=100, line=dict(color="#444c56", width=5))
+# --- DRAW BUILDING ---
+fig.add_shape(type="rect", x0=0, y0=-20, x1=160, y1=100, line=dict(color="#444c56", width=5))
 fig.add_shape(type="rect", x0=0, y0=-20, x1=25, y1=100, fillcolor="rgba(88, 166, 255, 0.1)", line=dict(color="#58a6ff", width=2, dash="dash"))
 fig.add_annotation(x=12.5, y=40, text="CENTRAL<br>AI SERVER", showarrow=False, font=dict(color="#58a6ff", size=12))
-fig.add_shape(type="rect", x0=25, y0=30, x1=155, y1=46, fillcolor="rgba(139, 148, 158, 0.08)", line=dict(width=0))
+fig.add_shape(type="rect", x0=25, y0=30, x1=160, y1=46, fillcolor="rgba(139, 148, 158, 0.08)", line=dict(width=0))
 
 # --- PLOT SENSORS & EGGS ---
-# Sensors (♦️ SHT31)
 fig.add_trace(go.Scatter(
     x=df_sensors['X'], y=df_sensors['Y'], mode='markers', name='Sensor Node',
     marker=dict(size=14, color='#58a6ff', symbol='diamond', line=dict(width=1.5, color='white')),
     text=df_sensors.apply(lambda r: f"Node: {r['ID']}<br>Temp: {r['T']:.2f}°C", axis=1), hoverinfo='text'
 ))
 
-# Eggs
 colors = {'Safe': '#238636', 'Warning': '#d29922', 'Critical': '#f85149'}
 for status in ['Safe', 'Warning', 'Critical']:
     sub = df[df['Status'] == status]
@@ -161,21 +155,27 @@ for status in ['Safe', 'Warning', 'Critical']:
         text=sub.apply(lambda r: f"ID: {r['Egg_ID']}<br>รอด: {r['Prob']}%", axis=1), hoverinfo='text'
     ))
 
-# Zoom Logic (จะทำงานได้ดีที่สุดเมื่อ Pause ระบบ Live)
-zoom_set = {'xaxis': {'showgrid': False, 'showticklabels': False, 'zeroline': False},
-            'yaxis': {'showgrid': False, 'showticklabels': False, 'zeroline': False, 'scaleanchor':"x", 'scaleratio':1}}
+# --- PRECISION ZOOM LOGIC ---
 if search_egg != "None":
     tgt = df[df['Egg_ID'] == search_egg].iloc[0]
-    zoom_set['xaxis']['range'] = [tgt['X']-15, tgt['X']+15]
-    zoom_set['yaxis']['range'] = [tgt['Y']-15, tgt['Y']+15]
-    fig.add_shape(type="circle", x0=tgt['X']-2, y0=tgt['Y']-2, x1=tgt['X']+2, y1=tgt['Y']+2, line=dict(color="white", width=4))
+    # บังคับช่วงแกน (X, Y Axes) ให้แคบลงรอบๆ ไข่ที่เลือก
+    fig.update_xaxes(range=[tgt['X']-12, tgt['X']+12], autorange=False)
+    fig.update_yaxes(range=[tgt['Y']-12, tgt['Y']+12], autorange=False)
+    # เพิ่มวงกลมเน้นตำแหน่ง
+    fig.add_shape(type="circle", x0=tgt['X']-2, y0=tgt['Y']-2, x1=tgt['X']+2, y1=tgt['Y']+2, line=dict(color="#ffffff", width=4))
+else:
+    # คืนค่ากลับสู่มุมมองอาคารทั้งหมด
+    fig.update_xaxes(range=[-5, 165], autorange=False)
+    fig.update_yaxes(range=[-25, 105], autorange=False)
 
-fig.update_layout(template="plotly_dark", height=750, margin=dict(l=0, r=0, t=0, b=0),
-                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5), **zoom_set)
+fig.update_layout(template="plotly_dark", height=750, margin=dict(l=10, r=10, t=10, b=10),
+                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                  xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+                  yaxis=dict(showgrid=False, showticklabels=False, zeroline=False, scaleanchor="x", scaleratio=1))
 
 st.plotly_chart(fig, use_container_width=True)
 
-# 8. TABLES & AUTO-REFRESH LOGIC
+# 8. BOTTOM TABLES
 st.divider()
 c_btm1, c_btm2 = st.columns([1, 1])
 with c_btm1:
@@ -185,7 +185,7 @@ with c_btm2:
     st.subheader("🛠️ Sensor Diagnostic")
     st.dataframe(df_sensors[['ID', 'T', 'H']], use_container_width=True, hide_index=True)
 
-# --- ระบบคุมจังหวะการรีเฟรช ---
+# --- REFRESH LOGIC ---
 if is_live:
     time.sleep(5)
     st.rerun()
