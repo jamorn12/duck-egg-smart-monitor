@@ -24,8 +24,9 @@ st.markdown("""
 if 'show_guide' not in st.session_state:
     st.session_state.show_guide = True
 
-# 2. DATA ENGINE (ระบบจำลองข้อมูลแบบขยับได้)
+# 2. DATA ENGINE (ระบบจำลองข้อมูลแบบ Real-time)
 def get_live_data():
+    # ใช้ Seed จากเวลาเพื่อให้ค่าเปลี่ยนทุกครั้งที่รัน
     np.random.seed(int(time.time()))
     racks, trays = [f"R{i:02d}" for i in range(1, 11)], [f"T{i:02d}" for i in range(1, 11)]
     egg_data, sensor_data = [], []
@@ -66,16 +67,11 @@ with st.sidebar:
     
     with st.expander("🔬 AI Technical Spec & Reference", expanded=True):
         st.write("**Algorithm:** XGBoost Classifier")
-        st.write("**Model Reliability:** 94.2% Accuracy")
+        st.write("**Reliability:** 94.2% Accuracy")
         st.latex(r"Cost = -\frac{1}{N} \sum [y \ln(p) + (1-y) \ln(1-p)]")
-        st.info("อ้างอิงเกณฑ์การวิเคราะห์เชิงพื้นที่ (Incubation Spatial Analysis)")
 
     with st.expander("💰 งบประมาณอุปกรณ์ (BOM)"):
-        st.table(pd.DataFrame({
-            "อุปกรณ์": ["SHT31-D", "ESP32", "R-Pi 4", "Wiring"],
-            "หน้าที่": ["วัดค่าแม่นยำสูง", "รับ-ส่งข้อมูลรายโซน", "Server & AI กลาง", "ระบบไฟอาคาร"],
-            "งบ (บาท)": ["35,000", "15,000", "3,500", "5,600"]
-        }))
+        st.table(pd.DataFrame({"อุปกรณ์": ["SHT31-D", "ESP32", "R-Pi 4", "Wiring"], "งบ (บาท)": ["35,000", "15,000", "3,500", "5,600"]}))
     
     st.divider()
     threshold = st.slider("เกณฑ์แจ้งเตือนความเสี่ยง (%)", 10, 90, 50)
@@ -88,35 +84,16 @@ df['Status'] = 'Safe'
 df.loc[df['Prob'] < threshold, 'Status'] = 'Warning'
 df.loc[df['Prob'] < 30, 'Status'] = 'Critical'
 
-# 5. USER GUIDE
-if st.session_state.show_guide:
-    st.markdown(f"""
-    <div class="guide-box">
-        <h3>📖 คู่มือระบบ Digital Twin (Industrial Edition)</h3>
-        <p>• <b>Live Mode:</b> ข้อมูลจะอัปเดตทุก 5 วินาทีเพื่อให้เห็นความร้อนที่เปลี่ยนไป</p>
-        <p>• <b>Precision Zoom:</b> เมื่อต้องการดูพิกัดไข่ ให้ <b>ปิด (Pause)</b> ระบบ Live ก่อน เพื่อล็อคตำแหน่งกล้องให้คงที่</p>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("✅ เริ่มการตรวจสอบ"):
-        st.session_state.show_guide = False
-        st.rerun()
-
-# 6. HEADER METRICS
+# 5. HEADER METRICS
 st.title("🏗️ Duck Hatchery: Live Engineering Twin")
 if is_live:
     st.markdown('สถานะ: <span class="live-indicator">● LIVE STREAMING</span>', unsafe_allow_html=True)
 else:
     st.markdown('สถานะ: <span class="pause-indicator">■ PAUSED (สำหรับการวิเคราะห์)</span>', unsafe_allow_html=True)
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("🥚 Capacity", "1,000 Eggs")
-c2.metric("🌡️ Hall Temp", f"{df['Temp'].mean():.2f} °C")
-c3.metric("📡 Sensor Health", "Online" if is_live else "Holding")
-crit_count = (df['Status'] == 'Critical').sum()
-c4.metric("🚨 Critical Status", f"{crit_count} Units", delta=crit_count, delta_color="inverse")
-
-# 7. PRO BLUEPRINT MAP
+# 6. PRO BLUEPRINT MAP
 st.subheader("📍 Smart Factory Floor Plan (Spatial View)")
+# ดึงเฉพาะไอดีที่มีปัญหาขึ้นมาให้เลือก
 at_risk_list = df[df['Status'] != 'Safe']['Egg_ID'].tolist()
 search_egg = st.selectbox("🔍 ค้นหาไอดีไข่เพื่อระบุตำแหน่ง (Focus Search):", ["None"] + at_risk_list)
 
@@ -125,14 +102,13 @@ fig = go.Figure()
 # --- DRAW BUILDING ---
 fig.add_shape(type="rect", x0=0, y0=-20, x1=160, y1=100, line=dict(color="#444c56", width=5))
 fig.add_shape(type="rect", x0=0, y0=-20, x1=25, y1=100, fillcolor="rgba(88, 166, 255, 0.1)", line=dict(color="#58a6ff", width=2, dash="dash"))
-fig.add_annotation(x=12.5, y=40, text="CENTRAL<br>AI SERVER", showarrow=False, font=dict(color="#58a6ff", size=12))
-fig.add_shape(type="rect", x0=25, y0=30, x1=160, y1=46, fillcolor="rgba(139, 148, 158, 0.08)", line=dict(width=0))
+fig.add_annotation(x=12.5, y=40, text="CENTRAL SERVER", showarrow=False, font=dict(color="#58a6ff", size=10))
 
 # --- PLOT SENSORS & EGGS ---
 fig.add_trace(go.Scatter(
     x=df_sensors['X'], y=df_sensors['Y'], mode='markers', name='Sensor Node',
     marker=dict(size=14, color='#58a6ff', symbol='diamond', line=dict(width=1.5, color='white')),
-    text=df_sensors.apply(lambda r: f"Node: {r['ID']}<br>Temp: {r['T']:.2f}°C", axis=1), hoverinfo='text'
+    text=df_sensors['ID'], hoverinfo='text'
 ))
 
 colors = {'Safe': '#238636', 'Warning': '#d29922', 'Critical': '#f85149'}
@@ -144,33 +120,31 @@ for status in ['Safe', 'Warning', 'Critical']:
         text=sub.apply(lambda r: f"ID: {r['Egg_ID']}<br>รอด: {r['Prob']}%", axis=1), hoverinfo='text'
     ))
 
-# --- 🔥 FIXED PRECISION ZOOM LOGIC ---
-# กำหนดค่าเริ่มต้นของแกน (มุมมองปกติ)
-x_range = [-5, 165]
-y_range = [-25, 105]
-
-# หากมีการเลือกไข่ ให้เปลี่ยนระยะช่วงแกน
+# --- 🎯 PRECISION ZOOM ENGINE (แก้ไขจุดนี้) ---
 if search_egg != "None":
     tgt = df[df['Egg_ID'] == search_egg].iloc[0]
-    x_range = [tgt['X'] - 12, tgt['X'] + 12]
-    y_range = [tgt['Y'] - 12, tgt['Y'] + 12]
-    # เพิ่มวงกลมไฮไลท์
+    # ล็อคพิกัดแกน X และ Y ให้แคบลงรอบจุดที่เลือก
+    x_range = [tgt['X'] - 10, tgt['X'] + 10]
+    y_range = [tgt['Y'] - 10, tgt['Y'] + 10]
+    # วาดวงกลมไฮไลท์
     fig.add_shape(type="circle", x0=tgt['X']-2, y0=tgt['Y']-2, x1=tgt['X']+2, y1=tgt['Y']+2, line=dict(color="#ffffff", width=4))
+else:
+    # มุมมองปกติ (ภาพรวมอาคาร)
+    x_range = [-5, 165]
+    y_range = [-25, 105]
 
-# รวมการตั้งค่าทั้งหมดไว้ใน update_layout ทีเดียว เพื่อป้องกันการเขียนทับ
+# บังคับใช้ระยะซูมในคำสั่งสุดท้ายทีเดียว ห้ามให้ Plotly คำนวณเอง
 fig.update_layout(
-    template="plotly_dark", 
-    height=750, 
-    margin=dict(l=10, r=10, t=10, b=10),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+    template="plotly_dark", height=750, margin=dict(l=0, r=0, t=0, b=0),
     xaxis=dict(range=x_range, autorange=False, showgrid=False, showticklabels=False, zeroline=False),
     yaxis=dict(range=y_range, autorange=False, showgrid=False, showticklabels=False, zeroline=False, scaleanchor="x", scaleratio=1),
-    hovermode='closest'
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+    uirevision='constant' # รักษา State ของผู้ใช้ไว้แม้ข้อมูลจะเปลี่ยน
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# 8. BOTTOM TABLES
+# 7. BOTTOM TABLES
 st.divider()
 c_btm1, c_btm2 = st.columns([1, 1])
 with c_btm1:
