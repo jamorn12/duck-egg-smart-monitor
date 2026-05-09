@@ -75,18 +75,17 @@ with st.sidebar:
     st.subheader("⏱️ Simulation Control")
     is_live = st.toggle("เปิดระบบ Real-time Monitoring (Live)", value=True)
     
-    # อิทธิพลสภาพอากาศภายนอก (Weather Integration)
     weather_impact = st.slider("☁️ อิทธิพลอากาศภายนอก (Weather Impact)", -0.5, 0.5, 0.0, 0.1, help="จำลองพายุหรือคลื่นความร้อน")
     egg_price = st.number_input("💰 ราคาไข่/ตัว (บาท)", value=15.0, step=1.0)
     
-    if is_live or st.session_state.master_df is None:
+    # 🔧 FIX ERROR: ตรวจสอบว่าถ้าไม่มีข้อมูลเดิม หรือ ข้อมูลเดิมไม่มีคอลัมน์ Fan ให้สร้างใหม่เลย
+    if is_live or st.session_state.master_df is None or 'Fan' not in st.session_state.sensor_df.columns:
         st.session_state.master_df, st.session_state.sensor_df = generate_factory_data(weather_impact)
 
     with st.expander("🔬 AI & System Specs", expanded=True):
         st.write("**Model:** XGBoost (94.2% Accuracy)")
         st.latex(r"Cost = -\sum [y \ln(p) + (1-y) \ln(1-p)]")
-        st.write("**Features Added:**")
-        st.caption("- Economic Intelligence\n- Hatch Prediction\n- Auto Control Loop\n- Historical Heatmap")
+        st.write("**Features:** Economic Intelligence, Hatch Prediction, Auto Control Loop")
 
     with st.expander("💰 งบประมาณอุปกรณ์ (BOM)"):
         st.table(pd.DataFrame({"อุปกรณ์": ["SHT31-D", "ESP32", "R-Pi 4", "System"], "หน้าที่": ["เซ็นเซอร์", "ส่งข้อมูล", "AI Server", "ตู้ไฟ"], "งบ (฿)": ["35k", "15k", "3.5k", "5.6k"]}))
@@ -102,12 +101,12 @@ df['Status'] = 'Safe'
 df.loc[df['Prob'] < threshold, 'Status'] = 'Warning'
 df.loc[df['Prob'] < 30, 'Status'] = 'Critical'
 
-# คำนวณเศรษฐศาสตร์และพลังงาน
+# คำนวณเศรษฐศาสตร์และพลังงาน (ตอนนี้จะไม่พังแล้ว เพราะมีคอลัมน์ Fan แน่นอน)
 est_survival_count = (df['Prob'] / 100).sum()
 est_revenue = est_survival_count * egg_price
 potential_loss = (len(df) - est_survival_count) * egg_price
 active_fans = (df_sensors['Fan'] == "ON (Cooling)").sum()
-power_usage = 12.5 + (active_fans * 0.8) # Base 12.5 kWh + 0.8 per active fan
+power_usage = 12.5 + (active_fans * 0.8)
 
 # 4. HEADER & METRICS
 st.title("🏗️ Duck Hatchery: Ultimate Intelligence Twin")
@@ -116,7 +115,7 @@ if is_live:
 else:
     st.markdown('สถานะ: <span class="pause-indicator">■ PAUSED (ข้อมูลล็อคเพื่อการวิเคราะห์)</span>', unsafe_allow_html=True)
 
-# แถวที่ 1: Technical Metrics (ของเดิม)
+# แถวที่ 1: Technical Metrics
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("🥚 Capacity", f"{len(df):,} ฟอง")
 c2.metric("🌡️ Hall Temp Avg", f"{df['Temp'].mean():.2f} °C")
@@ -124,7 +123,7 @@ c3.metric("📡 Sensor Health", "Online" if is_live else "Frozen")
 crit_count = (df['Status'] == 'Critical').sum()
 c4.metric("🚨 Critical Status", f"{crit_count} ใบ", delta=crit_count, delta_color="inverse")
 
-# แถวที่ 2: Business & Energy Metrics (ของใหม่)
+# แถวที่ 2: Business & Energy Metrics
 b1, b2, b3, b4 = st.columns(4)
 b1.metric("💰 คาดการณ์รายได้ (Est. Revenue)", f"฿{est_revenue:,.2f}")
 b2.metric("📉 มูลค่าความเสี่ยง (Potential Loss)", f"฿{potential_loss:,.2f}", delta="- Risk", delta_color="inverse")
@@ -133,14 +132,13 @@ b4.metric("🐣 เฉลี่ยวันฟักตัว (Avg Hatch)", f"{d
 
 # 5. USER GUIDE
 if st.session_state.show_guide:
-    st.markdown("""<div class="guide-box"><h3>📖 คู่มือระบบ Ultimate Twin</h3><p>1. <b>Tabs:</b> เลือกแท็บด้านล่างเพื่อดูแผนที่หลัก, เศรษฐศาสตร์, หรือสถิติย้อนหลัง<br>2. <b>การซูม:</b> ปิด Live ด้านซ้าย แล้วเลือก ID ไข่จากช่องค้นหาเพื่อซูม<br>3. <b>Control Loop:</b> ระบบพัดลมจะทำงานอัตโนมัติ (แถบพลังงานจะขึ้น) เมื่ออุณหภูมิเกิน 37.8°C</p></div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="guide-box"><h3>📖 คู่มือระบบ Ultimate Twin</h3><p>1. <b>Tabs:</b> เลือกแท็บด้านล่างเพื่อดูแผนที่หลัก, เศรษฐศาสตร์, หรือสถิติย้อนหลัง<br>2. <b>การซูม:</b> ปิด Live ด้านซ้าย แล้วใช้ช่องค้นหาเพื่อซูม<br>3. <b>Control Loop:</b> ระบบพัดลมจะทำงานอัตโนมัติ (แถบพลังงานจะขึ้น) เมื่ออุณหภูมิเกิน 37.8°C</p></div>""", unsafe_allow_html=True)
     if st.button("✅ ปิดคู่มือ"): st.session_state.show_guide = False; st.rerun()
 
-# --- TABS SYSTEM (จัดระเบียบ UI ไม่ให้รก) ---
+# --- TABS SYSTEM ---
 tab1, tab2, tab3 = st.tabs(["📍 Real-time Spatial Map", "💼 Economic & HVAC Logic", "📈 Historical Analysis"])
 
 with tab1:
-    # 6. PRO BLUEPRINT MAP (คงเดิม + ซูมเสถียร)
     search_egg = st.selectbox("🔍 ค้นหาไอดีไข่เพื่อระบุตำแหน่ง (Focus Search):", ["None"] + df[df['Status'] != 'Safe']['Egg_ID'].tolist())
     
     fig = go.Figure()
@@ -167,7 +165,6 @@ with tab1:
     fig.update_layout(template="plotly_dark", height=700, margin=dict(l=0, r=0, t=0, b=0), xaxis=dict(range=x_range, autorange=False, showgrid=False, showticklabels=False, zeroline=False), yaxis=dict(range=y_range, autorange=False, showgrid=False, showticklabels=False, zeroline=False, scaleanchor="x", scaleratio=1), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5), uirevision='constant')
     st.plotly_chart(fig, use_container_width=True)
 
-    # Tables
     st.divider()
     c_btm1, c_btm2 = st.columns([1, 1])
     with c_btm1:
@@ -196,12 +193,8 @@ with tab2:
 
 with tab3:
     st.subheader("📈 Historical Dead Zone Analysis (จำลองสถิติ 30 วัน)")
-    st.caption("แผนที่ความร้อนแสดงจุดที่เกิดความเสี่ยงวิกฤตบ่อยที่สุดในช่วง 30 วันที่ผ่านมา เพื่อประกอบการปรับปรุงโครงสร้างอาคาร")
-    
-    # จำลองข้อมูล Heatmap ย้อนหลัง
     hist_data = df.groupby(['Rack', 'Tray']).agg({'X': 'mean', 'Y': 'mean'}).reset_index()
     hist_data['Historical_Risk'] = np.random.uniform(0, 100, size=len(hist_data))
-    
     fig_hist = go.Figure(data=go.Heatmap(
         z=hist_data['Historical_Risk'], x=hist_data['X'], y=hist_data['Y'],
         colorscale='Inferno', hoverinfo='text',
