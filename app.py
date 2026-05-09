@@ -20,13 +20,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE MANAGEMENT (ระบบล็อคข้อมูลและสถานะการซูม) ---
+# --- SESSION STATE MANAGEMENT (ระบบล็อคข้อมูล) ---
 if 'master_df' not in st.session_state: st.session_state.master_df = None
 if 'sensor_df' not in st.session_state: st.session_state.sensor_df = None
-if 'selected_egg_id' not in st.session_state: st.session_state.selected_egg_id = None
 if 'show_guide' not in st.session_state: st.session_state.show_guide = True
 
-# 2. DATA ENGINE (ระบบจำลองข้อมูล)
+# 2. DATA ENGINE (ระบบจำลองข้อมูลขยับได้)
 def generate_factory_data():
     np.random.seed(int(time.time()))
     racks, trays = [f"R{i:02d}" for i in range(1, 11)], [f"T{i:02d}" for i in range(1, 11)]
@@ -55,33 +54,32 @@ def get_trained_model():
     y = np.random.binomial(1, np.clip(100 - (np.abs(df_sample['Temp'] - 37.5) * 25 + df_sample['Spike']*45), 0, 100) / 100.0)
     return xgb.XGBClassifier(n_estimators=50).fit(X, y)
 
-# 3. SIDEBAR & LOGIC (PLAY/PAUSE + BOM + TECH)
+# 3. SIDEBAR (PLAY/PAUSE + BOM + TECH)
 with st.sidebar:
     st.header("🏗️ Engineering Master Plan")
     st.subheader("⏱️ Simulation Control")
     is_live = st.toggle("เปิดระบบ Real-time Monitoring (Live)", value=True)
     
-    # ล็อคข้อมูล: ถ้า Live ให้ดึงใหม่ / ถ้า Pause ให้ดึงจาก Session State เท่านั้น
+    # ล็อคข้อมูล: ถ้า Live ให้ดึงใหม่ / ถ้า Pause ให้ดึงจาก State เดิมค้างไว้
     if is_live or st.session_state.master_df is None:
         st.session_state.master_df, st.session_state.sensor_df = generate_factory_data()
-        if is_live: st.session_state.selected_egg_id = None # รีเซ็ตการซูมเมื่อกลับมา Live
 
-    with st.expander("🔬 AI Technical Spec", expanded=True):
-        st.write("**Model:** XGBoost Classifier (94.2% Accuracy)")
-        st.latex(r"Cost = -\sum [y \ln(p) + (1-y) \ln(1-p)]")
-        st.info("ระบบคำนวณแบบ Spatial Thermal Analysis")
+    with st.expander("🔬 AI Technical Spec & Reference", expanded=True):
+        st.write("**Model:** XGBoost (94.2% Accuracy)")
+        st.latex(r"L(\theta) = -\sum [y \ln(p) + (1-y) \ln(1-p)]")
+        st.info("อ้างอิง: Spatial Thermal Analysis")
 
     with st.expander("💰 งบประมาณอุปกรณ์ (BOM)"):
         st.table(pd.DataFrame({
             "อุปกรณ์": ["SHT31-D", "ESP32", "R-Pi 4", "System"],
-            "หน้าที่": ["เซ็นเซอร์แม่นยำสูง", "ส่งข้อมูลรายโซน", "ประมวลผล AI", "ระบบไฟ"],
+            "หน้าที่": ["วัดค่าแม่นยำสูง", "ส่งข้อมูลไร้สาย", "Server & AI", "ระบบไฟ"],
             "งบ (บาท)": ["35,000", "15,000", "3,500", "5,600"]
         }))
     
     threshold = st.slider("เกณฑ์แจ้งเตือนความเสี่ยง (%)", 10, 90, 50)
     if st.button("🔄 รีเซ็ตคู่มือ"): st.session_state.show_guide = True
 
-# ประมวลผลสถานะไข่
+# ประมวลผล AI
 model = get_trained_model()
 df, df_sensors = st.session_state.master_df.copy(), st.session_state.sensor_df.copy()
 df['Prob'] = np.round(model.predict_proba(df[['Temp', 'Humid', 'Spike']])[:, 1] * 100, 2)
@@ -89,14 +87,13 @@ df['Status'] = 'Safe'
 df.loc[df['Prob'] < threshold, 'Status'] = 'Warning'
 df.loc[df['Prob'] < 30, 'Status'] = 'Critical'
 
-# 4. HEADER & METRICS
+# 4. HEADER & UI METRICS (กลับมาครบ!)
 st.title("🏗️ Duck Hatchery: Live Engineering Twin")
 if is_live:
     st.markdown('สถานะ: <span class="live-indicator">● LIVE STREAMING</span>', unsafe_allow_html=True)
 else:
     st.markdown('สถานะ: <span class="pause-indicator">■ PAUSED (DATA FROZEN)</span>', unsafe_allow_html=True)
 
-# Metrics (อยู่ครบถ้วนตามต้องการ)
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("🥚 Capacity", f"{len(df):,} ฟอง")
 c2.metric("🌡️ Hall Temp Avg", f"{df['Temp'].mean():.2f} °C")
@@ -106,14 +103,14 @@ c4.metric("🚨 Critical Status", f"{crit_count} ใบ", delta=crit_count, delt
 
 # 5. USER GUIDE
 if st.session_state.show_guide:
-    st.markdown("""<div class="guide-box"><h3>📖 วิธีการซูมวิเคราะห์</h3><p>1. <b>ปิด Live</b> ด้านซ้ายเพื่อให้ข้อมูลนิ่ง<br>2. <b>เลือก ID ไข่</b> จากช่องค้นหาหรือคลิกตารางเพื่อซูมพิกัด</p></div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="guide-box"><h3>📖 คู่มือการซูมวิเคราะห์</h3><p>1. <b>ปิด Live</b> ด้านซ้ายเพื่อให้ข้อมูลนิ่ง<br>2. <b>เลือก ID ไข่</b> จากช่องค้นหาด้านล่างเพื่อซูมพิกัดพยาน</p></div>""", unsafe_allow_html=True)
     if st.button("✅ ปิดคู่มือ"): st.session_state.show_guide = False; st.rerun()
 
-# 6. PRO BLUEPRINT MAP (ผังโรงเรือนครบชุด)
-st.subheader("📍 Smart Factory Floor Plan (Engineering Layout)")
-# ช่องค้นหา (เป็น Fallback กรณีเวอร์ชันเก่า)
-search_egg = st.selectbox("🔍 ค้นหาไอดีไข่เพื่อระบุตำแหน่ง (Focus Search):", ["None"] + df[df['Status'] != 'Safe']['Egg_ID'].tolist())
-if search_egg != "None": st.session_state.selected_egg_id = search_egg
+# 6. PRO BLUEPRINT MAP (ผังอาคารวิศวกรรมครบชุด)
+st.subheader("📍 Smart Factory Floor Plan (Spatial View)")
+# ใช้ selectbox ที่นี่เพราะเสถียรที่สุดในทุกเวอร์ชัน Streamlit
+at_risk_list = df[df['Status'] != 'Safe']['Egg_ID'].tolist()
+search_egg = st.selectbox("🔍 ค้นหาไอดีไข่เพื่อระบุตำแหน่ง (Focus Search):", ["None"] + at_risk_list)
 
 fig = go.Figure()
 # วาดอาคารและห้องควบคุม
@@ -121,7 +118,8 @@ fig.add_shape(type="rect", x0=0, y0=-20, x1=160, y1=100, line=dict(color="#444c5
 fig.add_shape(type="rect", x0=0, y0=-20, x1=25, y1=100, fillcolor="rgba(88, 166, 255, 0.1)", line=dict(color="#58a6ff", width=2, dash="dash"))
 fig.add_annotation(x=12.5, y=40, text="CENTRAL SERVER", showarrow=False, font=dict(color="#58a6ff", size=10))
 # พัดลมระบายอากาศ
-for y_fan in [15, 75]: fig.add_trace(go.Scatter(x=[160], y=[y_fan], mode='markers', marker=dict(symbol='hexagon-dot', size=25, color='#f85149'), showlegend=False, text="Exhaust Fan", hoverinfo="text"))
+for y_fan in [15, 75]:
+    fig.add_trace(go.Scatter(x=[160], y=[y_fan], mode='markers', marker=dict(symbol='hexagon-dot', size=25, color='#f85149'), showlegend=False, text="Exhaust Fan", hoverinfo="text"))
 
 # Plot เซ็นเซอร์และไข่
 fig.add_trace(go.Scatter(x=df_sensors['X'], y=df_sensors['Y'], mode='markers', name='Sensor', marker=dict(size=14, color='#58a6ff', symbol='diamond', line=dict(width=1.5, color='white')), text=df_sensors['ID'], hoverinfo='text'))
@@ -132,32 +130,23 @@ for status in ['Safe', 'Warning', 'Critical']:
 
 # --- 🔥 PRECISION ZOOM LOGIC ---
 x_range, y_range = [-5, 165], [-25, 105]
-if st.session_state.selected_egg_id and st.session_state.selected_egg_id != "None":
-    tgt = df[df['Egg_ID'] == st.session_state.selected_egg_id].iloc[0]
+if search_egg != "None":
+    tgt = df[df['Egg_ID'] == search_egg].iloc[0]
     x_range, y_range = [tgt['X']-12, tgt['X']+12], [tgt['Y']-12, tgt['Y']+12]
     fig.add_shape(type="circle", x0=tgt['X']-2, y0=tgt['Y']-2, x1=tgt['X']+2, y1=tgt['Y']+2, line=dict(color="#ffffff", width=4))
 
 fig.update_layout(template="plotly_dark", height=750, margin=dict(l=0, r=0, t=0, b=0), xaxis=dict(range=x_range, autorange=False, showgrid=False, showticklabels=False, zeroline=False), yaxis=dict(range=y_range, autorange=False, showgrid=False, showticklabels=False, zeroline=False, scaleanchor="x", scaleratio=1), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5), uirevision='constant')
 st.plotly_chart(fig, use_container_width=True)
 
-# 7. INTERACTIVE TABLES
+# 7. TABLES
 st.divider()
 c_btm1, c_btm2 = st.columns([1, 1])
 with c_btm1:
-    st.subheader("📋 Watchlist (คลิกเลือกแถวเพื่อซูมพิกัด)")
-    watchlist_df = df[df['Status'] != 'Safe'][['Egg_ID', 'Temp', 'Status', 'Prob']].sort_values('Prob')
-    try:
-        # ระบบคลิกที่ตาราง (จะทำงานถ้าเวอร์ชันคือ 1.35.0+)
-        selected_rows = st.dataframe(watchlist_df, on_select="rerun", selection_mode="single_row", hide_index=True, use_container_width=True)
-        if len(selected_rows.selection.rows) > 0:
-            st.session_state.selected_egg_id = watchlist_df.iloc[selected_rows.selection.rows[0]]['Egg_ID']
-    except:
-        st.warning("⚠️ คลิกที่ตารางไม่ได้เพราะเวอร์ชันเก่า แต่คุณสามารถซูมได้โดยใช้ 'ช่องค้นหา' ด้านบนแผนที่")
-    if st.button("❌ ล้างการซูม (Reset View)"): st.session_state.selected_egg_id = "None"; st.rerun()
-
+    st.subheader("📋 Watchlist")
+    st.dataframe(df[df['Status'] != 'Safe'][['Egg_ID', 'Temp', 'Status', 'Prob']].sort_values('Prob'), use_container_width=True, hide_index=True)
 with c_btm2:
     st.subheader("🛠️ Sensor Diagnostics")
     st.dataframe(df_sensors[['ID', 'T', 'H']], use_container_width=True, hide_index=True)
 
-# --- REFRESH LOOP ---
+# --- REFRESH LOGIC ---
 if is_live: time.sleep(5); st.rerun()
