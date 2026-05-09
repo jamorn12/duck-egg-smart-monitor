@@ -41,7 +41,7 @@ def generate_factory_data(weather_factor):
             tray_temp = 37.5 + diurnal_drift + np.random.normal(0, 0.15)
             tray_humid = 65.0 - (diurnal_drift * 4) + np.random.normal(0, 1.2)
             
-            # ระบบ Control Loop: ถ้าร้อนเกิน 37.8 พัดลมโซนนั้นจะทำงาน
+            # ระบบ Control Loop
             fan_status = "ON (Cooling)" if tray_temp > 37.8 else "OFF (Standby)"
             
             sensor_data.append({
@@ -52,13 +52,14 @@ def generate_factory_data(weather_factor):
             for e_idx in range(10):
                 e_row, e_col = e_idx // 5, e_idx % 5
                 egg_temp = tray_temp + np.random.normal(0, 0.05)
-                # Hatch Date Prediction (จำลองจาก Heat Units)
                 days_left = max(0, int(28 - ((egg_temp - 37.0) * 2))) 
                 
+                # --- แก้ไขบั๊กตรงนี้: ใส่ Rack และ Tray กลับเข้าไปให้ครบ! ---
                 egg_data.append({
                     'Egg_ID': f"{r}-{t}-C{e_idx+1:02d}", 'X': x_base + e_col, 'Y': y_base + e_row,
                     'Temp': np.round(egg_temp, 2), 'Humid': np.round(tray_humid, 2), 
-                    'Spike': np.random.choice([0, 1], p=[0.97, 0.03]), 'Days_to_Hatch': days_left
+                    'Spike': np.random.choice([0, 1], p=[0.97, 0.03]), 'Days_to_Hatch': days_left,
+                    'Rack': r, 'Tray': t
                 })
     return pd.DataFrame(egg_data), pd.DataFrame(sensor_data)
 
@@ -78,8 +79,14 @@ with st.sidebar:
     weather_impact = st.slider("☁️ อิทธิพลอากาศภายนอก (Weather Impact)", -0.5, 0.5, 0.0, 0.1, help="จำลองพายุหรือคลื่นความร้อน")
     egg_price = st.number_input("💰 ราคาไข่/ตัว (บาท)", value=15.0, step=1.0)
     
-    # 🔧 FIX ERROR: ตรวจสอบว่าถ้าไม่มีข้อมูลเดิม หรือ ข้อมูลเดิมไม่มีคอลัมน์ Fan ให้สร้างใหม่เลย
-    if is_live or st.session_state.master_df is None or 'Fan' not in st.session_state.sensor_df.columns:
+    # เช็คความสมบูรณ์ของ Data เพื่อกัน Error จาก Cache เก่า
+    need_refresh = False
+    if st.session_state.master_df is None:
+        need_refresh = True
+    elif 'Rack' not in st.session_state.master_df.columns or 'Fan' not in st.session_state.sensor_df.columns:
+        need_refresh = True
+        
+    if is_live or need_refresh:
         st.session_state.master_df, st.session_state.sensor_df = generate_factory_data(weather_impact)
 
     with st.expander("🔬 AI & System Specs", expanded=True):
@@ -101,7 +108,7 @@ df['Status'] = 'Safe'
 df.loc[df['Prob'] < threshold, 'Status'] = 'Warning'
 df.loc[df['Prob'] < 30, 'Status'] = 'Critical'
 
-# คำนวณเศรษฐศาสตร์และพลังงาน (ตอนนี้จะไม่พังแล้ว เพราะมีคอลัมน์ Fan แน่นอน)
+# คำนวณเศรษฐศาสตร์และพลังงาน
 est_survival_count = (df['Prob'] / 100).sum()
 est_revenue = est_survival_count * egg_price
 potential_loss = (len(df) - est_survival_count) * egg_price
@@ -179,9 +186,14 @@ with tab2:
     e1, e2 = st.columns(2)
     with e1:
         st.info("📉 การประเมินมูลค่าความเสี่ยงรายถาด (Risk Valuation)")
+        # ตอนนี้จะไม่เกิด KeyError: 'Rack' อีกแล้วครับ!
         risk_val = df[df['Status'] != 'Safe'].groupby(['Rack', 'Tray']).size().reset_index(name='Risk_Count')
-        risk_val['Lost_Value_THB'] = risk_val['Risk_Count'] * egg_price
-        st.dataframe(risk_val.sort_values('Lost_Value_THB', ascending=False), hide_index=True, use_container_width=True)
+        if not risk_val.empty:
+            risk_val['Lost_Value_THB'] = risk_val['Risk_Count'] * egg_price
+            st.dataframe(risk_val.sort_values('Lost_Value_THB', ascending=False), hide_index=True, use_container_width=True)
+        else:
+            st.success("ไม่มีความเสี่ยงในระบบ")
+            
     with e2:
         st.warning("⚙️ ระบบสั่งการพัดลมอัตโนมัติ (HVAC Auto-Control)")
         active_cooling = df_sensors[df_sensors['Fan'] == 'ON (Cooling)']
